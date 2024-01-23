@@ -1,0 +1,30 @@
+name: Rust
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix: 
+        runs-on:
+          - ubuntu-22.04
+          - macos-13
+          - windows-2019
+          - windows-2022
+    runs-on: ${{ matrix.runs-on }}
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Run debug
+      run: cargo run
+    - name: Run release
+      run: cargo run --release
+      
