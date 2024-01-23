@@ -1,34 +1,54 @@
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
+    let mut success = true;
 
     tracing::info!("Single thread test");
-    hammer_thread(0);
+    if ! hammer_thread(0) {
+        success = false;
+    }
 
     tracing::info!("Multi-thread test");
     let handles = (0..2).map(|i| std::thread::spawn(move || {
         hammer_thread(i)
     })).collect::<Vec<_>>();
 
+
     for handle in handles {
-        handle.join().unwrap();
+        if ! handle.join().unwrap() {
+            success = false;
+        }
     }
 
+    if ! success {
+        anyhow::bail!("Something failed");
+    }
     Ok(())
 }
 
-fn hammer_thread(i: u32) {
+fn hammer_thread(i: u32) -> bool {
     let name = format!("dev.firezone.client/test_OZQP3QIN/token/{i}");
+    let mut success = true;
 
-    for _ in 0..1000 {
-        if let Err(error) = hammer_cycle(&name) {
-            tracing::error!(?error, "Multi-thread test failed");
+    for iteration in 0..1000 {
+        match hammer_cycle(&name) {
+            Ok(false) => {
+                tracing::error!(?iteration, "Multi-thread test failed");
+                success = false;
+            }
+            Ok(true) => {}
+            Err(error) => {
+                tracing::error!(?error);
+                success = false;
+            }
         }
     }
 
     keyring::Entry::new_with_target(&name, "", "").unwrap().delete_password().ok();
+    success
 }
 
-fn hammer_cycle(name: &str) -> anyhow::Result<()> {
+fn hammer_cycle(name: &str) -> anyhow::Result<bool> {
+    let mut success = true;
     let password = "bogus_password";
 
     keyring::Entry::new_with_target(name, "", "")?.delete_password().ok();
@@ -39,6 +59,7 @@ fn hammer_cycle(name: &str) -> anyhow::Result<()> {
             .get_password()
         else {
             tracing::error!(?name, ?iteration, "couldn't get_password");
+            success = false;
             std::thread::sleep(std::time::Duration::from_millis(1));
             continue;
         };
@@ -48,5 +69,5 @@ fn hammer_cycle(name: &str) -> anyhow::Result<()> {
         break;
     }
 
-    Ok(())
+    Ok(success)
 }
