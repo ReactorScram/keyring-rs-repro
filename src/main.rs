@@ -1,6 +1,9 @@
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
     let mut success = true;
+    tracing::error!("make sure errors show up in CI");
+    tracing::info!("Logical CPU count {}", num_cpus::get());
+    tracing::info!("Physical CPU count {}", num_cpus::get_physical());
 
     tracing::info!("Single thread test");
     if ! hammer_thread(0) {
@@ -8,7 +11,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     tracing::info!("Multi-thread test");
-    let handles = (0..2).map(|i| std::thread::spawn(move || {
+    let handles = (0..8).map(|i| std::thread::spawn(move || {
         hammer_thread(i)
     })).collect::<Vec<_>>();
 
