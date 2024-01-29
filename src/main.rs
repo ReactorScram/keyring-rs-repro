@@ -32,8 +32,13 @@ fn hammer_thread(i: u32) -> bool {
     let name = format!("dev.firezone.client/test_OZQP3QIN/token/{i}");
     let mut success = true;
 
+    let Ok(entry) = keyring::Entry::new_with_target(&name, "", "") else {
+        tracing::error!("couldn't create keyring::Entry");
+        return false;
+    };
+
     for iteration in 0..1000 {
-        match hammer_cycle(&name) {
+        match hammer_cycle(&name, &entry) {
             Ok(false) => {
                 tracing::error!(?iteration, "Multi-thread test failed");
                 success = false;
@@ -50,16 +55,15 @@ fn hammer_thread(i: u32) -> bool {
     success
 }
 
-fn hammer_cycle(name: &str) -> anyhow::Result<bool> {
+fn hammer_cycle(name: &str, entry: &keyring::Entry) -> anyhow::Result<bool> {
     let mut success = true;
     let password = "bogus_password";
 
-    keyring::Entry::new_with_target(name, "", "")?.delete_password().ok();
-    keyring::Entry::new_with_target(name, "", "")?.set_password(password)?;
+    entry.delete_password().ok();
+    entry.set_password(password)?;
 
     for iteration in 0..5 {
-        let Ok(actual) = keyring::Entry::new_with_target(name, "", "")?
-            .get_password()
+        let Ok(actual) = entry.get_password()
         else {
             tracing::error!(?name, ?iteration, "couldn't get_password");
             success = false;
